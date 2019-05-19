@@ -17,16 +17,17 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 public class SVNUpdater {
 	private static final String LOCAL_PROJECT_BASE_SRC = "E:/JAVA-WORKSPACE/CAE/CAE-Base/src/";
 	private static final String LOCAL_PROJECT_WEB_SRC = "E:/JAVA-WORKSPACE/CAE/CAE-Web/src/";
-	private static final String LOCAL_PROJECT_ROOT = "E:/JAVA-WORKSPACE/CAE/CAE-Web/WebRoot/";
+	private static final String LOCAL_PROJECT_ROOT = "E:/JAVA-WORKSPACE/CAE-update_only/CAE/WebRoot/";
 	private static final String LOCAL_UPDATE = "C:/Users/Arctic/Desktop/update/";
 	private static final String REMOTE_UPDATE = "C:/Users/Webadmin0227/Desktop/update/";
-	private static final String REMOTE_BACKUP = "D:/cae_bak/cae_project/cae2019-03-20/";
+	private static final String REMOTE_BACKUP = "D:/cae_bak/cae_project/cae2019-05-14~05-17/";
 	private static final String REMOTE_PROJECT = "D:/MemberDBceshi/webapps/cae/";
 	private static final String REMOTE_PROJECT_PRODUCTION = "D:/MemberDB/webapps/cae/";
 	private static final String SVN_UPDATE = "U";
 	private static final String SVN_ADD = "A";
 	private static final String SVN_DELETE = "D";
-
+	
+	//entrance method
 	public synchronized void generateCMD(String xlsxFilePath) {
 		List<String[]> result = processList(getListFromXLSX(xlsxFilePath));
 		File localUpdate = new File(LOCAL_UPDATE + "01-LOCAL_PACK.CMD");
@@ -72,8 +73,8 @@ public class SVNUpdater {
 	private void writeLocalUpdateCmd(File file, List<String> addList, List<String> updateList) throws Exception {
 		FileWriter writer = new FileWriter(file);
 		StringBuilder sBuilder = new StringBuilder(80);
-		sBuilder.append(getUpdateOrBackUpCmd(LOCAL_PROJECT_ROOT, LOCAL_UPDATE, addList));
-		sBuilder.append(getUpdateOrBackUpCmd(LOCAL_PROJECT_ROOT, LOCAL_UPDATE, updateList));
+		sBuilder.append(getUpdateOrBackUpCmd(LOCAL_PROJECT_ROOT, LOCAL_UPDATE, addList,LOCAL_UPDATE));
+		sBuilder.append(getUpdateOrBackUpCmd(LOCAL_PROJECT_ROOT, LOCAL_UPDATE, updateList,LOCAL_UPDATE));
 		writer.write(sBuilder.toString());
 		writer.write("pause");
 		writer.close();
@@ -85,8 +86,8 @@ public class SVNUpdater {
 	private void writeRemoteBackupCmd(File file, List<String> updateList, List<String> deleteList) throws Exception {
 		FileWriter writer = new FileWriter(file);
 		StringBuilder sBuilder = new StringBuilder(80);
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_PROJECT, REMOTE_BACKUP, updateList));
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_PROJECT, REMOTE_BACKUP, deleteList));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_PROJECT, REMOTE_BACKUP, updateList,REMOTE_UPDATE));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_PROJECT, REMOTE_BACKUP, deleteList,REMOTE_UPDATE));
 		writer.write(sBuilder.toString());
 		writer.write("pause");
 		writer.close();
@@ -100,9 +101,9 @@ public class SVNUpdater {
 		FileWriter writer = new FileWriter(file);
 		StringBuilder sBuilder = new StringBuilder(80);
 		// update test
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT, addList));
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT, updateList));
-		sBuilder.append(getUpdateDeleteCmd(REMOTE_PROJECT, deleteList));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT, addList,REMOTE_UPDATE));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT, updateList,REMOTE_UPDATE));
+		sBuilder.append(getUpdateDeleteCmd(REMOTE_PROJECT, deleteList,REMOTE_UPDATE));
 		writer.write(sBuilder.toString());
 		writer.write("pause");
 		writer.close();
@@ -116,9 +117,9 @@ public class SVNUpdater {
 		FileWriter writer = new FileWriter(file);
 		StringBuilder sBuilder = new StringBuilder(80);
 		// update production
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT_PRODUCTION, addList));
-		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT_PRODUCTION, updateList));
-		sBuilder.append(getUpdateDeleteCmd(REMOTE_PROJECT_PRODUCTION, deleteList));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT_PRODUCTION, addList,REMOTE_UPDATE));
+		sBuilder.append(getUpdateOrBackUpCmd(REMOTE_UPDATE, REMOTE_PROJECT_PRODUCTION, updateList,REMOTE_UPDATE));
+		sBuilder.append(getUpdateDeleteCmd(REMOTE_PROJECT_PRODUCTION, deleteList,REMOTE_UPDATE));
 		writer.write(sBuilder.toString());
 		writer.write("pause");
 		writer.close();
@@ -127,12 +128,12 @@ public class SVNUpdater {
 	/**
 	 * advance create string cmd for file copy
 	 */
-	private StringBuilder getUpdateOrBackUpCmd(String startPrefix, String targetPrefix, List<String> pathList)
+	private StringBuilder getUpdateOrBackUpCmd(String startPrefix, String targetPrefix, List<String> pathList, String logPath)
 			throws Exception {
 		StringBuilder sBuilder = new StringBuilder(80);
 		for (String ele : pathList) {
 			// local root to local update
-			String cmd = getCopyCmd(startPrefix, targetPrefix, ele);
+			String cmd = getCopyCmd(startPrefix, targetPrefix, ele,logPath);
 			sBuilder.append(cmd);
 		}
 		return sBuilder;
@@ -141,11 +142,11 @@ public class SVNUpdater {
 	/**
 	 * advance create string cmd for file delete
 	 */
-	private StringBuilder getUpdateDeleteCmd(String prefix, List<String> pathList) throws Exception {
+	private StringBuilder getUpdateDeleteCmd(String prefix, List<String> pathList, String logPath) throws Exception {
 		StringBuilder sBuilder = new StringBuilder(80);
 		for (String ele : pathList) {
 			// local root to local update
-			String cmd = getDeleteCmd(prefix, ele);
+			String cmd = getDeleteCmd(prefix, ele,logPath);
 			sBuilder.append(cmd);
 		}
 		return sBuilder;
@@ -154,10 +155,11 @@ public class SVNUpdater {
 	/**
 	 * base create string cmd for file copy
 	 */
-	private String getCopyCmd(String startPathPrefix, String targetPathPrefix, String path) throws Exception {
+	private String getCopyCmd(String startPathPrefix, String targetPathPrefix, String path,String logPath) throws Exception {
 		String cmd = "ECHO F|XCOPY " + startPathPrefix + path + " " + targetPathPrefix + path;
 		cmd = cmd.replaceAll("/", "\\\\");
 		cmd = cmd.replace("ECHO F|XCOPY ", "ECHO F|XCOPY /y ");
+		cmd = cmd+getLogCmd(logPath);
 		cmd = cmd + "\r\n";
 		return cmd;
 	}
@@ -165,11 +167,21 @@ public class SVNUpdater {
 	/**
 	 * base create string cmd for file delete
 	 */
-	private String getDeleteCmd(String pathPrefix, String path) throws Exception {
+	private String getDeleteCmd(String pathPrefix, String path,String logPath) throws Exception {
 		String cmd = "DEL " + pathPrefix + path;
 		cmd = cmd.replaceAll("/", "\\\\");
+		cmd = cmd+getLogCmd(logPath);
 		cmd = cmd + "\r\n";
 		return cmd;
+	}
+	
+	private String getLogCmd(String logPath) throws Exception {
+		StringBuilder sBuilder = new StringBuilder(80);
+		sBuilder.append(" >> \"");
+		sBuilder.append(logPath);
+		sBuilder.append("log.txt");
+		sBuilder.append("\"");
+		return sBuilder.toString();
 	}
 
 	/**
